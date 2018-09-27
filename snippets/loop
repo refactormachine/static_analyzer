@@ -1,0 +1,8 @@
+# vars
+x n
+
+# TODO
+# buggy command
+L3 assume(x=n) L5
+
+L5 assert() L6

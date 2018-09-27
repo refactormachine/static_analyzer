@@ -1,0 +1,9 @@
+x y z
+L1  x := x - 1              L2
+L2  y := 1                  L3
+L3  skip                    L4
+L4  assume (x != y)            L5
+L4  assume (x = y)            L6
+L5  x := y                  L6
+L9  x:= 111                     L10
+L6  assert(ODD x)           L7
