@@ -1,7 +1,7 @@
 import re
 import sys
-from lattices.Lattice import Lattice, LatticeState, BottomLatticeState, TopLatticeState
-# from lattices.Pcp import *
+from Lattice import Lattice, LatticeState, BottomLatticeState, TopLatticeState
+from Pcp.Pcp import CartesianPcpLattice
 
 
 def read_snippet(snippet_name):
@@ -13,154 +13,9 @@ def read_snippet(snippet_name):
 
 
 def parse_variables_from_snippet(snippet_code):
+    # type: ([str]) -> [str]
     variables_line = snippet_code[0]
     return variables_line.split()
-
-
-class Command(object):
-    def apply(self, lattices_state):
-        pass
-
-
-class SkipCommand(Command):
-    def apply(self, lattices_state):
-        return lattices_state
-
-
-class VariableAssignmentCommand(Command):
-    def __init__(self, lhs_variable, rhs_variable):
-        self.lhs_variable = lhs_variable
-        self.rhs_variable = rhs_variable
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        c_lattice_state[self.lhs_variable].value = lattices_state[self.rhs_variable].value
-        return c_lattice_state
-
-
-class ConstantAssignmentCommand(Command):
-    def __init__(self, lhs_variable, constant_value):
-        self.lhs_variable = lhs_variable
-        self.constant_value = constant_value
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        c_lattice_state[self.lhs_variable]= \
-            PcpLattice.get_constant_state(lattices_state[self.lhs_variable].lattice, self.constant_value)
-        return c_lattice_state
-
-
-class ArbitraryAssignmentCommand(Command):
-    def __init__(self, lhs_variable):
-        self.lhs_variable = lhs_variable
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        c_lattice_state[self.lhs_variable] = PcpLattice.get_top(lattices_state[self.lhs_variable].lattice)
-        return c_lattice_state
-
-
-class AssignAdditionCommand(Command):
-    def __init__(self, lhs_variable, rhs_variable, constant_value):
-        self.lhs_variable = lhs_variable
-        self.rhs_variable = rhs_variable
-        self.constant_value = constant_value
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        rhs_lattice_state = lattices_state[self.rhs_variable]
-        if type(rhs_lattice_state) in [TopLatticeState, BottomLatticeState]:
-            c_lattice_state[self.lhs_variable].value = rhs_lattice_state.value
-        elif type(rhs_lattice_state) in [EvenConstantPcpLatticeState, OddConstantPcpLatticeState]:
-            state_constant_value = int(rhs_lattice_state.value)
-            c_lattice_state[self.lhs_variable] = \
-                c_lattice_state[self.lhs_variable].lattice.get_constant_state(state_constant_value + self.constant_value)
-        # Even or Odd
-        elif self.constant_value % 2 == 0:
-            c_lattice_state[self.lhs_variable].value = rhs_lattice_state.value
-        else:
-            if type(rhs_lattice_state) is EvenPcpLatticeState:
-                c_lattice_state[self.lhs_variable] = c_lattice_state[self.lhs_variable].lattice.get_odd_state()
-            elif type(rhs_lattice_state) is OddPcpLatticeState:
-                c_lattice_state[self.lhs_variable] = c_lattice_state[self.lhs_variable].lattice.get_even_state()
-        return c_lattice_state
-
-
-class AssertCommand(Command):
-    def __init__(self, raw_condition):
-        self.raw_condition = raw_condition
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        # TODO: parse condition recursively and complete the function
-        return c_lattice_state
-
-
-class AssumeCommand(Command):
-    def __init__(self, raw_assumption):
-        self.raw_assumption = raw_assumption
-
-    def apply(self, lattices_state):
-        c_lattice_state = lattices_state.copy()
-        m = re.match("^true$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            return c_lattice_state
-        m = re.match("^false$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            for variable in c_lattice_state:
-                c_lattice_state[variable] = c_lattice_state[variable].lattice.get_bottom()
-            return c_lattice_state
-        m = re.match("^(\w+)\s*=\s*(\d+)$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            lhs_variable = m.group(1)
-            lhs_variable_lattice = c_lattice_state[lhs_variable].lattice  # type: PcpLattice
-            rhs_constant_value = int(m.group(2))
-            lhs_lattice_constant_state = lhs_variable_lattice.get_constant_state(rhs_constant_value)
-            c_lattice_state[lhs_variable] = \
-                lhs_variable_lattice.join_many([c_lattice_state[lhs_variable], lhs_lattice_constant_state])
-            return c_lattice_state
-        m = re.match("^(\w+)\s*=\s*(\w+)$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            lhs_variable = m.group(1)
-            lhs_variable_state = c_lattice_state[lhs_variable]  # type: PcpLatticeState
-            lhs_variable_lattice = lhs_variable_state.lattice  # type: PcpLattice
-            rhs_variable = m.group(2)
-            rhs_variable_state = c_lattice_state[rhs_variable]  # type: PcpLatticeState
-            rhs_variable_lattice = rhs_variable_state.lattice  # type: PcpLattice
-            c_lattice_state[lhs_variable] = \
-                lhs_variable_lattice.join_many([lhs_variable_state, rhs_variable_state])
-            c_lattice_state[rhs_variable] = \
-                rhs_variable_lattice.join_many([rhs_variable_state, lhs_variable_state])
-            return c_lattice_state
-        m = re.match("^(\w+)\s*!=\s*(\d+)$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            lhs_variable = m.group(1)
-            lhs_variable_state = c_lattice_state[lhs_variable]
-            lhs_variable_lattice = lhs_variable_state.lattice  # type: PcpLattice
-            rhs_constant_value = int(m.group(2))
-            lhs_lattice_constant_state = lhs_variable_lattice.get_constant_state(rhs_constant_value)
-            if type(lhs_variable_state) is not type(lhs_lattice_constant_state):
-                return c_lattice_state
-            elif lhs_variable_state.value == rhs_constant_value:
-                c_lattice_state[lhs_variable] = lhs_variable_lattice.get_bottom()
-                return c_lattice_state
-            else:
-                return c_lattice_state
-        m = re.match("^(\w+)\s*!=\s*(\w+)$", self.raw_assumption, re.IGNORECASE)
-        if m:
-            lhs_variable = m.group(1)
-            lhs_variable_state = c_lattice_state[lhs_variable]  # type: PcpLatticeState
-            lhs_variable_lattice = lhs_variable_state.lattice  # type: PcpLattice
-            rhs_variable = m.group(2)
-            rhs_variable_state = c_lattice_state[rhs_variable]  # type: PcpLatticeState
-            rhs_variable_lattice = rhs_variable_state.lattice  # type: PcpLattice
-            if type(lhs_variable_state) is type(rhs_variable_state) and \
-                    type(lhs_variable_state) in [OddConstantPcpLatticeState, EvenConstantPcpLatticeState]:
-                if lhs_variable_state.value == rhs_variable_state.value:
-                    c_lattice_state[lhs_variable] = lhs_variable_lattice.get_bottom()
-                    c_lattice_state[rhs_variable] = rhs_variable_lattice.get_bottom()
-            return c_lattice_state
-        raise Exception("Unknown assumption: {assumption}".format(assumption=self.raw_assumption))
 
 
 def parse_command_line(raw_command):
@@ -211,15 +66,15 @@ def parse_edges_from_snippet(snippet):
 
 
 class Node(object):
-    def __init__(self, node_id, entering_nodes, leaving_edges, lattices_states):
+    def __init__(self, node_id, entering_nodes, leaving_edges, lattice_state):
         self.node_id = node_id
         self.leaving_edges = leaving_edges
         self.entering_nodes = entering_nodes
-        self.lattices_state = lattices_states
+        self.lattice_state = lattice_state  # type: LatticeState
 
     def __repr__(self):
-        s = "\nNode#{node_id}: {lattices_states}\n".\
-            format(node_id=self.node_id, lattices_states=self.lattices_state.items())
+        s = "\nNode#{node_id}: {lattice_state}\n".\
+            format(node_id=self.node_id, lattice_state=self.lattice_state)
         s += "\tIngoing:\n"
         for edge in self.entering_nodes:
             s += "\t\t{edge}\n".format(edge=edge)
@@ -245,7 +100,8 @@ class Graph(object):
         return str(self.nodes.values())
 
 
-def build_graph(snippet, lattices):
+def build_graph(snippet, lattice):
+    # type: ([str], Lattice) -> Graph
     edges = parse_edges_from_snippet(snippet)
     edges_by_source = {}
     edges_by_destination = {}
@@ -260,16 +116,15 @@ def build_graph(snippet, lattices):
     for node_id in set(edges_by_destination.keys() + edges_by_source.keys()):
         entering_nodes = edges_by_destination[node_id] if node_id in edges_by_destination else []
         leaving_edges = edges_by_source[node_id] if node_id in edges_by_source else []
-        lattices_bottom_states = dict({(variable, lattice.get_bottom()) for (variable, lattice) in lattices.items()})
-        node = Node(node_id, entering_nodes, leaving_edges, lattices_bottom_states)
+        node = Node(node_id, entering_nodes, leaving_edges, lattice.get_bottom())
         nodes[node_id] = node
     root_node_id = min(nodes.keys())
     root_node = nodes[root_node_id]
-    root_node.lattices_state = dict({(variable, lattice.get_top()) for (variable, lattice) in lattices.items()})
+    root_node.lattice_state = lattice.get_top()
     return Graph(nodes, root_node_id, edges)
 
 
-def unify_lattices_states(nodes_states):
+def unify_nodes_states(nodes_states):
     unified_states = {}
     for variable_name, lattice_state in nodes_states[0].items():
         current_lattice = lattice_state.lattice # type: Lattice
@@ -278,7 +133,7 @@ def unify_lattices_states(nodes_states):
     return unified_states
 
 
-def run_chaotic_iteration_algorithm(graph):
+def run_chaotic_iteration_algorithm(graph, lattice):
     working_list = {graph.root_node_id}
     while working_list:
         current_node_id = working_list.pop()
@@ -289,12 +144,11 @@ def run_chaotic_iteration_algorithm(graph):
             continue
         for edge in current_node.entering_nodes:
             source_node = graph.get_node_by_id(edge.source_id)  # type: Node
-            source_lattices_state = source_node.lattices_state
-            updated_lattices_state = edge.command.apply(source_lattices_state)
-            updated_nodes_lattices_state.append(updated_lattices_state)
-        current_node_updated_lattices_state = unify_lattices_states(updated_nodes_lattices_state)
-        if current_node_updated_lattices_state != current_node.lattices_state:
-            current_node.lattices_state = current_node_updated_lattices_state
+            updated_lattice_state = edge.command.apply(source_node.lattice_state)
+            updated_nodes_lattices_state.append(updated_lattice_state)
+        current_node_updated_lattice_state = lattice.unify_many(updated_nodes_lattices_state)
+        if current_node_updated_lattice_state != current_node.lattices_state:
+            current_node.lattices_state = current_node_updated_lattice_state
             working_list.update([edge.destination_id for edge in current_node.leaving_edges])
 
 
@@ -306,24 +160,16 @@ def is_assert_raw_command(raw_command):
     return re.match("^assert\s*\(", raw_command, re.IGNORECASE)
 
 
-def create_lattice_for_variable(variable_name):
-    return PcpLattice(variable_name)
-
-
-def create_lattices_from_variables(variables):
-    return {variable_name: create_lattice_for_variable(variable_name) for variable_name in variables}
-
-
 def main(snippet_name):
     snippet = read_snippet(snippet_name)
     variables = parse_variables_from_snippet(snippet)
-    lattices = create_lattices_from_variables(variables)
-    graph = build_graph(snippet, lattices)  # type: Graph
-    run_chaotic_iteration_algorithm(graph)
+    lattice = CartesianPcpLattice(variables)
+    graph = build_graph(snippet, lattice)
+    run_chaotic_iteration_algorithm(graph, lattice)
     print graph
     asserts_edges = filter(is_assert_edge, graph.edges)
     print "==========ASSERTS=========="
-    print map(lambda edge: (graph.get_node_by_id(edge.source_id).lattices_state.values(), edge.raw_command), asserts_edges)
+    print map(lambda edge: (graph.get_node_by_id(edge.source_id).lattice_state.value(), edge.raw_command), asserts_edges)
 
 
 if __name__ == "__main__":
