@@ -3,6 +3,9 @@ x n
 
 # TODO
 # buggy command
-L3 assume(x=n) L5
-
-L5 assert() L6
+L1 n:=10        L2
+L2 x:=0         L3
+L3 assume(x!=n) L4
+L3 assume(x=n)  L5
+L4 x:=x+1       L3
+L5 assert()     L6

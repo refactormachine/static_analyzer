@@ -1,0 +1,6 @@
+x y
+L1 assume(x=y) L2
+L1 assume(x!=y) L3
+L2 x:=0 L4
+L3 x:= 2 L4
+L4 assert() L5
