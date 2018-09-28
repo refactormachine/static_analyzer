@@ -1,0 +1,8 @@
+x y z
+
+L1 assert(odD x) L2
+L2 x :=1 L3
+L3 assert(odd x) L4
+L4 assert(even y)(even x Odd z) L5
+L5 y:=x+5 L6
+L6 assert(even x odd y)(odd x even y) L7

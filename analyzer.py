@@ -247,13 +247,38 @@ class AdditionCommand(Command):
         return c_lattices
 
 
+def parse_raw_conditions(raw_conditions):
+    parsed_conditions = map(lambda l: zip(l.lower().split(" ")[0::2], l.split(" ")[1::2]),
+                            raw_conditions[1:-1].split(")("))
+
+    def check_condition(lattices, condition):
+        variable_state_value = lattices[condition[1]].state
+        if isinstance(variable_state_value, TopLatticeState):
+            return True
+        if isinstance(variable_state_value, BottomLatticeState):
+            return False
+        desired_parity_class = OddPcpLatticeState if condition[0] == "odd" else EvenPcpLatticeState
+        return isinstance(variable_state_value, desired_parity_class)
+
+    def check_and_conditions(lattices, and_condition):
+        return all([check_condition(lattices, condition) for condition in and_condition])
+
+    def check_or_conditions(lattices):
+        return any([check_and_conditions(lattices, and_condition) for and_condition in parsed_conditions])
+
+    return check_or_conditions
+
+
 class AssertCommand(Command):
     def __init__(self, raw_conditions):
         self.raw_conditions = raw_conditions
+        self.check_conditions = parse_raw_conditions(self.raw_conditions)
 
     def apply(self, lattices):
-        # TODO
         c_lattices = deepcopy(lattices)
+        if not self.check_conditions(c_lattices):
+            raise AssertionError("Assertion not met:\n{raw_condition}\n{lattices}". \
+                                 format(raw_condition=self.raw_conditions, lattices=lattices))
         return c_lattices
 
 
