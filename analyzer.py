@@ -463,13 +463,13 @@ def unify_lattices(incoming_lattices_states):
 
 
 def run_chaotic_iteration_algorithm(graph):
-    working_list = {graph.root_node_id}
+    # type: (Graph) -> None
+    working_list = set(graph.nodes.keys())
     while working_list:
         current_node_id = working_list.pop()
         current_node = graph.get_node_by_id(current_node_id)  # type: Node
         updated_incoming_nodes_lattices = []
         if not current_node.entering_nodes:
-            working_list.update([edge.destination_id for edge in current_node.leaving_edges])
             continue
         for edge in current_node.entering_nodes:
             edge_node = graph.get_node_by_id(edge.source_id)  # type: Node
