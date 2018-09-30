@@ -446,8 +446,6 @@ def build_graph(snippet, variables):
         nodes[node_id] = node
     root_node_id = min(nodes.keys())
     root_node = nodes[root_node_id]
-    for lattice in root_node.lattices.values():
-        lattice.state = TopLatticeState()
     return Graph(nodes, root_node_id, edges, variables)
 
 
