@@ -11,157 +11,73 @@ class LatticeState(object):
         return "value={value}".format(value=self.value)
 
 
-class PcpLatticeState(LatticeState):
+class TopLatticeState(LatticeState):
+    def __init__(self):
+        LatticeState.__init__(self, "T")
+
+
+class DcpLatticeState(LatticeState):
     def __init__(self, value):
         LatticeState.__init__(self, value)
 
-
-class TopLatticeState(LatticeState):
-    def __init__(self):
-        LatticeState.__init__(self, "TOP")
-
-
-class BottomLatticeState(LatticeState):
-    def __init__(self):
-        LatticeState.__init__(self, "BOTTOM")
+    def __repr__(self):
+        return self.value
 
 
 class Lattice(object):
     def __init__(self, variable_name, initial_state=None):
         if not initial_state:
-            initial_state = BottomLatticeState()
+            initial_state = self.get_bottom_state()
         self.variable_name = variable_name
         self.state = initial_state
+
+    def get_bottom_state(self):
+        raise NotImplementedError()
+
+    def get_top_state(self):
+        raise NotImplementedError()
+
+    def unify_many(self, states):
+        raise NotImplementedError()
+
+    def join_many(self, states):
+        raise NotImplementedError()
+
+    def get_state_with_value(self, value):
+        raise NotImplementedError()
 
     def __repr__(self):
         return "GENERIC_LATTICE_{variable}: {state}".format(variable=self.variable_name, state=self.state)
 
 
-class EvenPcpLatticeState(PcpLatticeState):
-    def __init__(self):
-        PcpLatticeState.__init__(self, "EVEN")
-
-
-class OddPcpLatticeState(PcpLatticeState):
-    def __init__(self):
-        PcpLatticeState.__init__(self, "ODD")
-
-
-class EvenConstantPcpLatticeState(EvenPcpLatticeState):
-    def __init__(self, value):
-        PcpLatticeState.__init__(self, value)
-
-
-class OddConstantPcpLatticeState(OddPcpLatticeState):
-    def __init__(self, value):
-        PcpLatticeState.__init__(self, value)
-
-
-class PcpLattice(Lattice):
+class DcpLattice(Lattice):
     def __init__(self, variable_name, initial_state=None):
-        if not initial_state:
-            initial_state = BottomLatticeState()
         Lattice.__init__(self, variable_name, initial_state)
 
     def __repr__(self):
-        return "PARITY_CONSTANT_PROPAGATION_LATTICE__{variable}@{state}". \
-            format(variable=self.variable_name, state=self.state)
+        return "DISJUNCTIVE_CONSTANT_PROPAGATION_LATTICE__{variable}@{state}". \
+            format(variable=self.variable_name, state="{" + " V ".join(["{var}={val}".format(var=self.variable_name, val=e) for e in self.state.value]) + "}")
 
-    @staticmethod
-    def get_constant_state(n):
-        if n % 2 == 0:
-            return EvenConstantPcpLatticeState(n)
-        else:
-            return OddConstantPcpLatticeState(n)
+    def get_top_state(self):
+        return TopLatticeState()
 
-    @staticmethod
-    def unify_many(states):
-        # type: (list[PcpLatticeState]) -> PcpLatticeState
-        if len(states) == 1:
-            return deepcopy(states[0])
-        state_1 = states.pop()
-        state_2 = states.pop()
-        temporary_unified_state = PcpLattice.unify_two(state_1, state_2)
-        states.append(temporary_unified_state)
-        return PcpLattice.unify_many(states)
+    def get_bottom_state(self):
+        return DcpLatticeState(set())
 
-    @staticmethod
-    def unify_two(state_1, state_2):
-        if type(state_1) is BottomLatticeState:
-            return deepcopy(state_2)
-        if type(state_2) is BottomLatticeState:
-            return deepcopy(state_1)
-        # not bottom
-        if type(state_1) is TopLatticeState:
-            return deepcopy(state_1)
-        if type(state_2) is TopLatticeState:
-            return deepcopy(state_2)
-        # not bottom or top
-        if isinstance(state_1, OddPcpLatticeState) and isinstance(state_2, EvenPcpLatticeState):
+    def unify_many(self, states):
+        if any([isinstance(state,TopLatticeState) for state in states]):
             return TopLatticeState()
-        if isinstance(state_1, EvenPcpLatticeState) and isinstance(state_2, OddPcpLatticeState):
-            return TopLatticeState()
-        # same parity
-        if type(state_1) is EvenConstantPcpLatticeState and type(state_2) is EvenConstantPcpLatticeState:
-            if state_1.value == state_2.value:
-                return deepcopy(state_1)
-            else:
-                return EvenPcpLatticeState()
-        if type(state_1) is OddConstantPcpLatticeState and type(state_2) is OddConstantPcpLatticeState:
-            if state_1.value == state_2.value:
-                return deepcopy(state_1)
-            else:
-                return OddPcpLatticeState()
-        # same parity, at least one isn't constant
-        if type(state_1) is EvenPcpLatticeState or type(state_2) is EvenPcpLatticeState:
-            return EvenPcpLatticeState()
-        elif type(state_1) is OddPcpLatticeState or type(state_2) is OddPcpLatticeState:
-            return OddPcpLatticeState()
-        raise Exception(state_1, state_2)
+        if states[0] == set([0]):
+            print "wow"
+        return DcpLatticeState(set.union(*[state.value for state in states]))
 
-    @staticmethod
-    def join_many(states):
-        if len(states) == 1:
-            return states[0]
-        state_1 = states.pop()
-        state_2 = states.pop()
-        temporary_joined_state = PcpLattice.join_two(state_1, state_2)
-        states.append(temporary_joined_state)
-        return PcpLattice.join_many(states)
+    def join_many(self, states):
+        if states == [TopLatticeState()]:
+            return [TopLatticeState()]
+        return set.intersection(*[state.value for state in states if not isinstance(state, TopLatticeState)])
 
-    @staticmethod
-    def join_two(state_1, state_2):
-        if BottomLatticeState in [type(state_1), type(state_2)]:
-            return BottomLatticeState()
-        # not bottom
-        if type(state_1) is TopLatticeState:
-            return state_2
-        if type(state_2) is TopLatticeState:
-            return state_1
-        # not bottom or top
-        if isinstance(state_1, OddPcpLatticeState) and isinstance(state_2, EvenPcpLatticeState):
-            return BottomLatticeState()
-        if isinstance(state_1, EvenPcpLatticeState) and isinstance(state_2, OddPcpLatticeState):
-            return BottomLatticeState()
-        # same parity
-        if type(state_1) is EvenConstantPcpLatticeState and type(state_2) is EvenConstantPcpLatticeState:
-            if state_1.value == state_2.value:
-                return state_1
-            else:
-                return BottomLatticeState()
-        if type(state_1) is OddConstantPcpLatticeState and type(state_2) is OddConstantPcpLatticeState:
-            if state_1.value == state_2.value:
-                return state_1
-            else:
-                return BottomLatticeState()
-        # same parity, at least one isn't constant
-        if type(state_1) is EvenConstantPcpLatticeState or type(state_1) is OddConstantPcpLatticeState:
-            return state_1
-        if type(state_2) is EvenConstantPcpLatticeState or type(state_2) is OddConstantPcpLatticeState:
-            return state_2
-        if type(state_1) is EvenPcpLatticeState or type(state_1) is OddPcpLatticeState:
-            return state_1
-        raise Exception(state_1, state_2)
+    def get_state_with_value(self, value):
+        return DcpLatticeState({value})
 
 
 def read_snippet(snippet_name):
@@ -207,7 +123,7 @@ class ConstantAssignmentCommand(Command):
 
     def apply(self, lattices):
         c_lattices = deepcopy(lattices)
-        c_lattices[self.lhs_variable].state = PcpLattice.get_constant_state(self.constant_value)
+        c_lattices[self.lhs_variable].state.value = {self.constant_value}
         return c_lattices
 
 
@@ -217,7 +133,7 @@ class ArbitraryAssignmentCommand(Command):
 
     def apply(self, lattices):
         c_lattices = deepcopy(lattices)
-        c_lattices[self.lhs_variable].state = TopLatticeState()
+        c_lattices[self.lhs_variable].state = c_lattices[self.lhs_variable].get_top_state()
         return c_lattices
 
 
@@ -229,21 +145,12 @@ class AdditionCommand(Command):
 
     def apply(self, lattices):
         c_lattices = deepcopy(lattices)
-        rhs_lattice_state = c_lattices[self.rhs_variable].state
-        if type(rhs_lattice_state) in [TopLatticeState, BottomLatticeState]:
-            c_lattices[self.lhs_variable].state = rhs_lattice_state
-        elif type(rhs_lattice_state) in [EvenConstantPcpLatticeState, OddConstantPcpLatticeState]:
-            state_constant_value = int(rhs_lattice_state.value)
-            c_lattices[self.lhs_variable].state = \
-                PcpLattice.get_constant_state(state_constant_value + self.constant_value)
-        # Even or Odd
-        elif self.constant_value % 2 == 0:
-            c_lattices[self.lhs_variable].state = rhs_lattice_state
+        rhs_lattice = c_lattices[self.rhs_variable]
+        rhs_lattice_state = rhs_lattice.state
+        if isinstance(rhs_lattice_state, TopLatticeState):
+            c_lattices[self.lhs_variable].state = c_lattices[self.lhs_variable].get_top_state()
         else:
-            if type(rhs_lattice_state) is EvenPcpLatticeState:
-                c_lattices[self.lhs_variable].state = OddPcpLatticeState()
-            elif type(rhs_lattice_state) is OddPcpLatticeState:
-                c_lattices[self.lhs_variable].state = EvenPcpLatticeState()
+            c_lattices[self.lhs_variable].state.value = set([e+self.constant_value for e in rhs_lattice_state.value])
         return c_lattices
 
 
@@ -251,14 +158,12 @@ def parse_raw_conditions(raw_conditions):
     parsed_conditions = map(lambda l: zip(l.lower().split(" ")[0::2], l.split(" ")[1::2]),
                             raw_conditions[1:-1].split(")("))
 
+    # TODO
     def check_condition(lattices, condition):
         variable_state_value = lattices[condition[1]].state
         if isinstance(variable_state_value, TopLatticeState):
             return True
-        if isinstance(variable_state_value, BottomLatticeState):
-            return False
-        desired_parity_class = OddPcpLatticeState if condition[0] == "odd" else EvenPcpLatticeState
-        return isinstance(variable_state_value, desired_parity_class)
+        raise NotImplementedError()
 
     def check_and_conditions(lattices, and_condition):
         return all([check_condition(lattices, condition) for condition in and_condition])
@@ -277,7 +182,7 @@ class AssertCommand(Command):
     def apply(self, lattices):
         c_lattices = deepcopy(lattices)
         if not self.check_conditions(c_lattices):
-            raise AssertionError("Assertion not met:\n{raw_condition}\n{lattices}". \
+            raise AssertionError("Assertion not met:\n{raw_condition}\n{lattices}".
                                  format(raw_condition=self.raw_conditions, lattices=lattices))
         return c_lattices
 
@@ -294,52 +199,52 @@ class AssumeCommand(Command):
         m = re.match("^false$", self.raw_assumption, re.IGNORECASE)
         if m:
             for variable in c_lattices.keys():
-                c_lattices[variable].state = BottomLatticeState()
+                c_lattices[variable].state = c_lattices[variable].get_bottom_state()
             return c_lattices
         m = re.match("^(\w+)\s*=\s*(\d+)$", self.raw_assumption, re.IGNORECASE)
         if m:
             lhs_variable = m.group(1)
-            lhs_variable_lattice = c_lattices[lhs_variable]  # type: PcpLattice
+            lhs_variable_lattice = c_lattices[lhs_variable]  # type: Lattice
             rhs_constant_value = int(m.group(2))
-            lhs_lattice_constant_state = lhs_variable_lattice.get_constant_state(rhs_constant_value)
-            c_lattices[lhs_variable].state = \
-                PcpLattice.join_many([lhs_variable_lattice.state, lhs_lattice_constant_state])
+            lhs_constant_state = lhs_variable_lattice.get_state_with_value(rhs_constant_value)
+            lhs_variable_lattice.state = \
+                lhs_variable_lattice.join_many([lhs_variable_lattice.state, lhs_constant_state])
             return c_lattices
         m = re.match("^(\w+)\s*=\s*(\w+)$", self.raw_assumption, re.IGNORECASE)
         if m:
             lhs_variable = m.group(1)
-            lhs_variable_state = c_lattices[lhs_variable].state
+            lhs_lattice = c_lattices[lhs_variable]
+            lhs_variable_state = lhs_lattice.state
             rhs_variable = m.group(2)
             rhs_variable_state = c_lattices[rhs_variable].state
-            c_lattices[lhs_variable].state = \
-                PcpLattice.join_many([lhs_variable_state, rhs_variable_state])
+            lhs_lattice.state = \
+                lhs_lattice.join_many([lhs_variable_state, rhs_variable_state])
             c_lattices[rhs_variable].state = \
-                PcpLattice.join_many([rhs_variable_state, lhs_variable_state])
+                lhs_lattice.join_many([rhs_variable_state, lhs_variable_state])
             return c_lattices
         m = re.match("^(\w+)\s*!=\s*(\d+)$", self.raw_assumption, re.IGNORECASE)
         if m:
             lhs_variable = m.group(1)
-            lhs_variable_state = c_lattices[lhs_variable].state
+            lhs_lattice = c_lattices[lhs_variable] # type: Lattice
+            lhs_variable_state = lhs_lattice.state
             rhs_constant_value = int(m.group(2))
-            lhs_lattice_constant_state = PcpLattice.get_constant_state(rhs_constant_value)
-            if type(lhs_variable_state) is not type(lhs_lattice_constant_state):
+            if isinstance(lhs_variable_state, TopLatticeState):
                 return c_lattices
-            elif lhs_variable_state.value == rhs_constant_value:
-                c_lattices[lhs_variable].state = BottomLatticeState()
-                return c_lattices
-            else:
-                return c_lattices
+            lhs_variable_state.value.difference_update({rhs_constant_value})
+            return c_lattices
         m = re.match("^(\w+)\s*!=\s*(\w+)$", self.raw_assumption, re.IGNORECASE)
         if m:
             lhs_variable = m.group(1)
-            lhs_variable_state = c_lattices[lhs_variable].state
+            lhs_lattice = c_lattices[lhs_variable]
+            lhs_variable_state = lhs_lattice.state
             rhs_variable = m.group(2)
             rhs_variable_state = c_lattices[rhs_variable].state
-            if type(lhs_variable_state) is type(rhs_variable_state) and \
-                    type(lhs_variable_state) in [OddConstantPcpLatticeState, EvenConstantPcpLatticeState]:
-                if lhs_variable_state.value == rhs_variable_state.value:
-                    c_lattices[lhs_variable].state = BottomLatticeState()
-                    c_lattices[rhs_variable].state = BottomLatticeState()
+            if (not isinstance(lhs_variable_state, TopLatticeState)) and \
+                    (not isinstance(rhs_variable_state, TopLatticeState)):
+                if len(lhs_variable_state.value) == 1:
+                    rhs_variable_state.value.difference_update(lhs_variable_state.value)
+                if len(rhs_variable_state.value) == 1:
+                    lhs_variable_state.value.difference_update(rhs_variable_state.value)
             return c_lattices
         raise Exception("Unknown assumption: {assumption}".format(assumption=self.raw_assumption))
 
@@ -442,7 +347,7 @@ def build_graph(snippet, variables):
     for node_id in set(edges_by_destination.keys() + edges_by_source.keys()):
         entering_nodes = edges_by_destination[node_id] if node_id in edges_by_destination else []
         leaving_edges = edges_by_source[node_id] if node_id in edges_by_source else []
-        node = Node(node_id, entering_nodes, leaving_edges, {variable: PcpLattice(variable) for variable in variables})
+        node = Node(node_id, entering_nodes, leaving_edges, {variable: DcpLattice(variable) for variable in variables})
         nodes[node_id] = node
     root_node_id = min(nodes.keys())
     root_node = nodes[root_node_id]
@@ -455,8 +360,9 @@ def unify_lattices(incoming_lattices_states):
     variables = incoming_lattices_states[0].keys()
     for variable in variables:
         variable_states = map(lambda lattices: lattices[variable].state, incoming_lattices_states)
-        unified_state = PcpLattice.unify_many(variable_states)
-        unified_lattices[variable] = PcpLattice(variable, initial_state=unified_state)
+        print incoming_lattices_states
+        unified_state = incoming_lattices_states[0][variable].unify_many(variable_states)
+        unified_lattices[variable] = DcpLattice(variable, initial_state=unified_state)
     return unified_lattices
 
 
@@ -490,14 +396,6 @@ def is_assert_edge(edge):
 
 def is_assert_raw_command(raw_command):
     return re.match("^assert\s*\(", raw_command, re.IGNORECASE)
-
-
-def create_lattice_for_variable(variable_name):
-    return PcpLattice(variable_name)
-
-
-def create_lattices_from_variables(variables):
-    return {variable_name: create_lattice_for_variable(variable_name) for variable_name in variables}
 
 
 def main(snippet_name):
