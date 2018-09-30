@@ -1,9 +1,9 @@
-# vars
-x n
-
-L1 n:=9999999999998        L2
-L2 x:=0         L3
-L3 assume(true) L4
-L3 assume(false)  L5
-L4 x:=?       L3
-L5 assert(odd x)     L6
+n i j
+L0 n := ? L1
+L1 i := 0 L2
+L2 j := 0 L3
+L3 assume(i = n) L6
+L3 assume(i != n) L4
+L4 i := j + 1 L5
+L5 j:= i L3
+L6 assert (ODD i ODD j)(EVEN i EVEN j) L7

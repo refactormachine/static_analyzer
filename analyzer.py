@@ -400,7 +400,7 @@ class Node(object):
 
     def __repr__(self):
         s = "\nNode#{node_id}: {lattices}\n". \
-            format(node_id=self.node_id, lattices=map(lambda l: l.state, self.lattices.values()))
+            format(node_id=self.node_id, lattices=map(lambda (v, l): (v, l.state), self.lattices.items()))
         s += "\tIngoing:\n"
         for edge in self.entering_nodes:
             s += "\t\t{edge}\n".format(edge=edge)
@@ -446,8 +446,6 @@ def build_graph(snippet, variables):
         nodes[node_id] = node
     root_node_id = min(nodes.keys())
     root_node = nodes[root_node_id]
-    for lattice in root_node.lattices.values():
-        lattice.state = TopLatticeState()
     return Graph(nodes, root_node_id, edges, variables)
 
 
