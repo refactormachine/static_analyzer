@@ -153,21 +153,15 @@ class AdditionCommand(Command):
 
 
 def parse_raw_conditions(raw_conditions):
-    parsed_conditions = map(lambda l: zip(l.lower().split(" ")[0::2], l.split(" ")[1::2]),
+    parsed_or_conditions = map(lambda l: map(lambda s: s.split(), re.match("^sum\s+(.+?)\s*=\s*sum\s+(.+)$", l, re.IGNORECASE).groups()),
                             raw_conditions[1:-1].split(")("))
 
     # TODO
     def check_condition(lattices, condition):
-        variable_state_value = lattices[condition[1]].state
-        if isinstance(variable_state_value, TopLatticeState):
-            return True
-        raise NotImplementedError()
-
-    def check_and_conditions(lattices, and_condition):
-        return all([check_condition(lattices, condition) for condition in and_condition])
+        raise NotImplementedError((lattices, condition))
 
     def check_or_conditions(lattices):
-        return any([check_and_conditions(lattices, and_condition) for and_condition in parsed_conditions])
+        return any([check_condition(lattices, and_condition) for and_condition in parsed_or_conditions])
 
     return check_or_conditions
 
