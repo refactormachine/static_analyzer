@@ -55,7 +55,7 @@ class DcpLattice(Lattice):
         Lattice.__init__(self, variable_name, initial_state)
 
     def __repr__(self):
-        return "DISJUNCTIVE_CONSTANT_PROPAGATION_LATTICE__{variable}@{state}". \
+        return "DISJUNCTIVE_CONSTANT_PROPAGATION_LATTICE__{variable}{state}". \
             format(variable=self.variable_name, state="{" + " V ".join(["{var}={val}".format(var=self.variable_name, val=e) for e in self.state.value]) + "}")
 
     def get_top_state(self):
@@ -67,17 +67,15 @@ class DcpLattice(Lattice):
     def unify_many(self, states):
         if any([isinstance(state,TopLatticeState) for state in states]):
             return TopLatticeState()
-        if states[0] == set([0]):
-            print "wow"
         return DcpLatticeState(set.union(*[state.value for state in states]))
 
     def join_many(self, states):
         if states == [TopLatticeState()]:
             return [TopLatticeState()]
-        return set.intersection(*[state.value for state in states if not isinstance(state, TopLatticeState)])
+        return self.get_state_with_value(set.intersection(*[state.value for state in states if not isinstance(state, TopLatticeState)]))
 
     def get_state_with_value(self, value):
-        return DcpLatticeState({value})
+        return DcpLatticeState(value)
 
 
 def read_snippet(snippet_name):
@@ -206,7 +204,7 @@ class AssumeCommand(Command):
             lhs_variable = m.group(1)
             lhs_variable_lattice = c_lattices[lhs_variable]  # type: Lattice
             rhs_constant_value = int(m.group(2))
-            lhs_constant_state = lhs_variable_lattice.get_state_with_value(rhs_constant_value)
+            lhs_constant_state = lhs_variable_lattice.get_state_with_value({rhs_constant_value})
             lhs_variable_lattice.state = \
                 lhs_variable_lattice.join_many([lhs_variable_lattice.state, lhs_constant_state])
             return c_lattices
@@ -305,7 +303,7 @@ class Node(object):
 
     def __repr__(self):
         s = "\nNode#{node_id}: {lattices}\n". \
-            format(node_id=self.node_id, lattices=map(lambda (v, l): (v, l.state), self.lattices.items()))
+            format(node_id=self.node_id, lattices=self.lattices.items())
         s += "\tIngoing:\n"
         for edge in self.entering_nodes:
             s += "\t\t{edge}\n".format(edge=edge)
@@ -360,7 +358,6 @@ def unify_lattices(incoming_lattices_states):
     variables = incoming_lattices_states[0].keys()
     for variable in variables:
         variable_states = map(lambda lattices: lattices[variable].state, incoming_lattices_states)
-        print incoming_lattices_states
         unified_state = incoming_lattices_states[0][variable].unify_many(variable_states)
         unified_lattices[variable] = DcpLattice(variable, initial_state=unified_state)
     return unified_lattices
