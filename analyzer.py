@@ -152,13 +152,38 @@ class AdditionCommand(Command):
         return c_lattices
 
 
+
+
 def parse_raw_conditions(raw_conditions):
     parsed_or_conditions = map(lambda l: map(lambda s: s.split(), re.match("^sum\s+(.+?)\s*=\s*sum\s+(.+)$", l, re.IGNORECASE).groups()),
                             raw_conditions[1:-1].split(")("))
 
+    def calculate_condition_vector(variables, condition_part):
+        constant = sum([int(e) for e in filter(lambda e: re.match("^-?\d+$", e), condition_part)])
+        part_variables = filter(lambda e: re.match("^[^\d-].*$", e), condition_part)
+        variables_count = {e: part_variables.count(e) for e in variables}
+        return {"variables_count": variables_count, "constant": constant}
+
+    def calculate_difference_vector(variables, lhs_elements, rhs_elements):
+        lhs_vector = calculate_condition_vector(variables, lhs_elements)
+        rhs_vector = calculate_condition_vector(variables, rhs_elements)
+
+        constants_difference = lhs_vector["constant"] - rhs_vector["constant"]
+        variables_count_difference = {variable: lhs_vector["variables_count"][variable]-rhs_vector["variables_count"][variable]
+                           for variable in variables}
+        return {"variables_count": variables_count_difference, "constant": constants_difference}
+
     # TODO
+    def is_value_possible(value, variables_count, lattices):
+
+        raise NotImplementedError(locals())
+
     def check_condition(lattices, condition):
-        raise NotImplementedError((lattices, condition))
+        variables = lattices.keys()
+        lhs_elements = condition[0]
+        rhs_elements = condition[1]
+        difference_vector = calculate_difference_vector(variables, lhs_elements, rhs_elements)
+        return is_value_possible(difference_vector["constant"], difference_vector["variables_count"], lattices)
 
     def check_or_conditions(lattices):
         return any([check_condition(lattices, and_condition) for and_condition in parsed_or_conditions])
