@@ -317,7 +317,11 @@ class Edge(object):
 
 def parse_code_line(code_line):
     m = re.match("L(\d+)\s+(.+?)\s+L(\d+)", code_line)
-    return Edge(*m.groups())
+    try:
+        return Edge(*m.groups())
+    except Exception as e:
+        print code_line
+        raise e
 
 
 def parse_edges_from_snippet(snippet):
