@@ -1,3 +1,4 @@
+import itertools
 import re
 import sys
 from copy import deepcopy
@@ -56,7 +57,8 @@ class DcpLattice(Lattice):
 
     def __repr__(self):
         return "DISJUNCTIVE_CONSTANT_PROPAGATION_LATTICE__{variable}{state}". \
-            format(variable=self.variable_name, state="{" + " V ".join(["{var}={val}".format(var=self.variable_name, val=e) for e in self.state.value]) + "}")
+            format(variable=self.variable_name, state="{" + " V ".join(
+            ["{var}={val}".format(var=self.variable_name, val=e) for e in self.state.value]) + "}")
 
     def get_top_state(self):
         return TopLatticeState()
@@ -65,14 +67,15 @@ class DcpLattice(Lattice):
         return DcpLatticeState(set())
 
     def unify_many(self, states):
-        if any([isinstance(state,TopLatticeState) for state in states]):
+        if any([isinstance(state, TopLatticeState) for state in states]):
             return TopLatticeState()
         return DcpLatticeState(set.union(*[state.value for state in states]))
 
     def join_many(self, states):
         if states == [TopLatticeState()]:
             return [TopLatticeState()]
-        return self.get_state_with_value(set.intersection(*[state.value for state in states if not isinstance(state, TopLatticeState)]))
+        return self.get_state_with_value(
+            set.intersection(*[state.value for state in states if not isinstance(state, TopLatticeState)]))
 
     def get_state_with_value(self, value):
         return DcpLatticeState(value)
@@ -148,15 +151,14 @@ class AdditionCommand(Command):
         if isinstance(rhs_lattice_state, TopLatticeState):
             c_lattices[self.lhs_variable].state = c_lattices[self.lhs_variable].get_top_state()
         else:
-            c_lattices[self.lhs_variable].state.value = set([e+self.constant_value for e in rhs_lattice_state.value])
+            c_lattices[self.lhs_variable].state.value = set([e + self.constant_value for e in rhs_lattice_state.value])
         return c_lattices
 
 
-
-
 def parse_raw_conditions(raw_conditions):
-    parsed_or_conditions = map(lambda l: map(lambda s: s.split(), re.match("^sum\s+(.+?)\s*=\s*sum\s+(.+)$", l, re.IGNORECASE).groups()),
-                            raw_conditions[1:-1].split(")("))
+    parsed_or_conditions = map(
+        lambda l: map(lambda s: s.split(), re.match("^sum\s+(.+?)\s*=\s*sum\s+(.+)$", l, re.IGNORECASE).groups()),
+        raw_conditions[1:-1].split(")("))
 
     def calculate_condition_vector(variables, condition_part):
         constant = sum([int(e) for e in filter(lambda e: re.match("^-?\d+$", e), condition_part)])
@@ -169,14 +171,24 @@ def parse_raw_conditions(raw_conditions):
         rhs_vector = calculate_condition_vector(variables, rhs_elements)
 
         constants_difference = lhs_vector["constant"] - rhs_vector["constant"]
-        variables_count_difference = {variable: lhs_vector["variables_count"][variable]-rhs_vector["variables_count"][variable]
-                           for variable in variables}
+        variables_count_difference = {
+        variable: lhs_vector["variables_count"][variable] - rhs_vector["variables_count"][variable]
+        for variable in variables}
         return {"variables_count": variables_count_difference, "constant": constants_difference}
 
     # TODO
     def is_value_possible(value, variables_count, lattices):
-
-        raise NotImplementedError(locals())
+        relevant_lattices = filter(lambda (var, lattice): variables_count[var] != 0, lattices.items())
+        relevant_variables_states = {variable: lattice.state for variable, lattice in relevant_lattices}
+        if any([isinstance(state, TopLatticeState) for state in relevant_variables_states.values()]):
+            return True
+        # no top states
+        if any([state.value == {} for state in relevant_variables_states.values()]):
+            return False
+        optional_variables_values = [[v*variables_count[var] for v in state.value]
+                                     for var, state in relevant_variables_states.items()]
+        optional_values = {sum(i) for i in itertools.product(*optional_variables_values)}
+        return value in optional_values
 
     def check_condition(lattices, condition):
         variables = lattices.keys()
@@ -242,7 +254,7 @@ class AssumeCommand(Command):
         m = re.match("^(\w+)\s*!=\s*(\d+)$", self.raw_assumption, re.IGNORECASE)
         if m:
             lhs_variable = m.group(1)
-            lhs_lattice = c_lattices[lhs_variable] # type: Lattice
+            lhs_lattice = c_lattices[lhs_variable]  # type: Lattice
             lhs_variable_state = lhs_lattice.state
             rhs_constant_value = int(m.group(2))
             if isinstance(lhs_variable_state, TopLatticeState):
