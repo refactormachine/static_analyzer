@@ -124,7 +124,7 @@ class ConstantAssignmentCommand(Command):
 
     def apply(self, lattices):
         c_lattices = deepcopy(lattices)
-        c_lattices[self.lhs_variable].state.value = {self.constant_value}
+        c_lattices[self.lhs_variable].state = c_lattices[self.lhs_variable].get_state_with_value({self.constant_value})
         return c_lattices
 
 
@@ -148,10 +148,11 @@ class AdditionCommand(Command):
         c_lattices = deepcopy(lattices)
         rhs_lattice = c_lattices[self.rhs_variable]
         rhs_lattice_state = rhs_lattice.state
+        lhs_lattice = c_lattices[self.lhs_variable]  # type: DcpLattice
         if isinstance(rhs_lattice_state, TopLatticeState):
-            c_lattices[self.lhs_variable].state = c_lattices[self.lhs_variable].get_top_state()
+            lhs_lattice.state = lhs_lattice.get_top_state()
         else:
-            c_lattices[self.lhs_variable].state.value = set([e + self.constant_value for e in rhs_lattice_state.value])
+            lhs_lattice.state = lhs_lattice.get_state_with_value({e + self.constant_value for e in rhs_lattice_state.value})
         return c_lattices
 
 
