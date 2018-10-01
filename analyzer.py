@@ -170,13 +170,12 @@ def parse_raw_conditions(raw_conditions):
         lhs_vector = calculate_condition_vector(variables, lhs_elements)
         rhs_vector = calculate_condition_vector(variables, rhs_elements)
 
-        constants_difference = lhs_vector["constant"] - rhs_vector["constant"]
+        constants_difference = rhs_vector["constant"] - lhs_vector["constant"]
         variables_count_difference = {
         variable: lhs_vector["variables_count"][variable] - rhs_vector["variables_count"][variable]
         for variable in variables}
         return {"variables_count": variables_count_difference, "constant": constants_difference}
 
-    # TODO
     def is_value_possible(value, variables_count, lattices):
         relevant_lattices = filter(lambda (var, lattice): variables_count[var] != 0, lattices.items())
         relevant_variables_states = {variable: lattice.state for variable, lattice in relevant_lattices}
