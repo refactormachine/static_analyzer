@@ -1,8 +1,8 @@
 import re
 from copy import deepcopy
 
-from analyzer import PcpLattice, TopLatticeState, BottomLatticeState, EvenConstantPcpLatticeState, \
-    OddConstantPcpLatticeState, EvenPcpLatticeState, OddPcpLatticeState
+from lattice import TopLatticeState, BottomLatticeState, EvenPcpLatticeState, OddPcpLatticeState, \
+    EvenConstantPcpLatticeState, OddConstantPcpLatticeState, PcpLattice
 
 
 class Command(object):
