@@ -94,8 +94,8 @@ def calculate_graph_nodes(edges, variables):
         edges_by_destination.setdefault(edge.destination_id, []).append(edge)
     nodes = {}
     for node_id in set(edges_by_destination.keys() + edges_by_source.keys()):
-        entering_nodes = edges_by_destination[node_id] if node_id in edges_by_destination else []
-        leaving_edges = edges_by_source[node_id] if node_id in edges_by_source else []
+        entering_nodes = edges_by_destination.get(node_id, [])
+        leaving_edges = edges_by_source.get(node_id, [])
         node = Node(node_id, entering_nodes, leaving_edges, {variable: PcpLattice(variable) for variable in variables})
         nodes[node_id] = node
     return nodes
