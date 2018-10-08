@@ -79,24 +79,26 @@ class Graph(object):
 
 def build_graph(snippet, variables):
     edges = parse_edges_from_snippet(snippet)
+    nodes = calculate_graph_nodes(edges, variables)
+    root_node_id = min(nodes.keys())
+    root_node = nodes[root_node_id]
+    return Graph(nodes, root_node_id, edges, variables)
+
+
+def calculate_graph_nodes(edges, variables):
     edges_by_source = {}
+    for edge in edges:
+        edges_by_source.setdefault(edge.source_id, []).append(edge)
     edges_by_destination = {}
     for edge in edges:
-        if edge.source_id not in edges_by_source.keys():
-            edges_by_source[edge.source_id] = []
-        edges_by_source[edge.source_id].append(edge)
-        if edge.destination_id not in edges_by_destination.keys():
-            edges_by_destination[edge.destination_id] = []
-        edges_by_destination[edge.destination_id].append(edge)
+        edges_by_destination.setdefault(edge.destination_id, []).append(edge)
     nodes = {}
     for node_id in set(edges_by_destination.keys() + edges_by_source.keys()):
         entering_nodes = edges_by_destination[node_id] if node_id in edges_by_destination else []
         leaving_edges = edges_by_source[node_id] if node_id in edges_by_source else []
         node = Node(node_id, entering_nodes, leaving_edges, {variable: PcpLattice(variable) for variable in variables})
         nodes[node_id] = node
-    root_node_id = min(nodes.keys())
-    root_node = nodes[root_node_id]
-    return Graph(nodes, root_node_id, edges, variables)
+    return nodes
 
 
 def unify_lattices(incoming_lattices_states):
